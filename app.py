@@ -149,6 +149,5 @@ def calculate_distribution():
     return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_needed, workload_percentages=workload_percentages, total_workers=total_workers)
 
 
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
