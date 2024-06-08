@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Worker Breakout{% endblock %}
+{% block header %}
+<h1 class="my-4">Worker Breakout</h1>
+{% endblock %}
+{% block content %}
+<h2 class="my-4">Breakout Result</h2>
+<ul class="list-group">
+    {% for section, workers in worker_distribution.items() %}
+        <li class="list-group-item section d-flex justify-content-between">
+            <span><strong>{{ section }}:</strong> {{ workers | join(', ') }}</span>
+            <span class="badge badge-secondary">Suggested Workers: {{ workers_needed[loop.index0] }} | Workload: {{ workload_percentages[loop.index0] | round(2) }}%</span>
+        </li>
+    {% endfor %}
+</ul>
+{% if excess_workers %}
+    <h2 class="my-4">Excess Workers</h2>
+    <ul class="list-group">
+        <li class="list-group-item" id="excess-workers">{{ excess_workers | join(', ') }}</li>
+    </ul>
+{% endif %}
+<h3 class="my-4">Total Workers: {{ total_workers }}</h3>
+<button class="btn btn-primary my-4" onclick="readBreakout()">
+    <i class="fas fa-volume-up"></i> Read Breakout
+</button>
+<button class="btn btn-secondary my-4" onclick="readBreakoutWithBonus()">
+    <i class="fas fa-volume-up"></i> Bonus
+</button>
+<script>
+    function readBreakout() {
+        const utterance = new SpeechSynthesisUtterance();
+        const sections = document.querySelectorAll('.section');
+        let text = "Here is the Worker Breakout: ";
+        sections.forEach(section => {
+            const sectionName = section.querySelector('span').textContent.split(":")[0];
+            const workers = section.querySelector('span').textContent.split(":")[1].split("|")[0].trim();
+            text += sectionName + ": " + workers + ". ";
+        });
+
+        const excess = document.getElementById('excess-workers');
+        if (excess) {
+            text += "Excess Workers: " + excess.textContent + ".";
+        }
+
+        utterance.text = text;
+        speechSynthesis.speak(utterance);
+    }
+
+    function readBreakoutWithBonus() {
+        const utterance = new SpeechSynthesisUtterance();
+        const sections = document.querySelectorAll('.section');
+        let text = "Here is the Worker Breakout: ";
+        sections.forEach(section => {
+            const sectionName = section.querySelector('span').textContent.split(":")[0];
+            const workers = section.querySelector('span').textContent.split(":")[1].split("|")[0].trim();
+            text += sectionName + ": " + workers + ". ";
+        });
+
+        const excess = document.getElementById('excess-workers');
+        if (excess) {
+            text += "Excess Workers: " + excess.textContent + ".";
+        }
+
+        text += " Oh and the Icee machine is on guys so help yourself.";
+
+        utterance.text = text;
+        speechSynthesis.speak(utterance);
+    }
+</script>
+{% endblock %}

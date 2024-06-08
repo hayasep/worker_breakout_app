@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Manage Workers{% endblock %}
+{% block header %}
+<h1 class="my-4">Manage Workers</h1>
+{% endblock %}
+{% block content %}
+<form action="{{ url_for('manage_workers') }}" method="post" class="my-4">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" class="form-control" id="name" name="name" required>
+    </div>
+    <div class="form-group">
+        <label for="preference">Preference:</label>
+        <select id="preference" name="preference" class="form-control" required onchange="updateAlternatives()">
+            {% for section in sections %}
+                <option value="{{ section }}">{{ section }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="alternatives">Alternatives:</label><br>
+        <div id="alternatives-container">
+            {% for section in sections %}
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="alternatives_{{ section }}" name="alternatives" value="{{ section }}">
+                    <label class="form-check-label" for="alternatives_{{ section }}">{{ section }}</label><br>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    <button type="submit" name="add_worker" class="btn btn-primary">Add Worker</button>
+</form>
+<hr>
+<h2 class="my-4">Current Workers</h2>
+<button class="btn btn-secondary mb-2" onclick="sortWorkers('name')">Sort Alphabetically</button>
+<button class="btn btn-secondary mb-2" onclick="sortWorkers('preference')">Sort by Preference</button>
+<ul class="list-group" id="worker-list">
+    {% for worker in workers %}
+        <li class="list-group-item">
+            <strong>{{ worker.name }}</strong> - <strong><em>Preference:</em></strong> {{ worker.preference }}, <strong><em>Alternatives:</em></strong> {{ worker.alternatives | join(', ') }}
+            <form action="{{ url_for('delete_worker', name=worker.name) }}" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+            </form>
+            <a href="{{ url_for('edit_worker', name=worker.name) }}" class="btn btn-secondary btn-sm">Edit</a>
+        </li>
+    {% endfor %}
+</ul>
+<script>
+    function updateAlternatives() {
+        var preference = document.getElementById('preference').value;
+        var checkboxes = document.querySelectorAll('#alternatives-container .form-check-input');
+
+        checkboxes.forEach(function(checkbox) {
+            if (checkbox.value === preference) {
+                checkbox.disabled = true;
+                checkbox.checked = false;
+            } else {
+                checkbox.disabled = false;
+            }
+        });
+    }
+
+    // Initial update to ensure the alternatives list is correct when editing a worker
+    document.addEventListener('DOMContentLoaded', function() {
+        updateAlternatives();
+    });
+
+    // Sort workers alphabetically or by preference
+    function sortWorkers(criterion) {
+        var list, i, switching, b, shouldSwitch;
+        list = document.getElementById("worker-list");
+        switching = true;
+        while (switching) {
+            switching = false;
+            b = list.getElementsByTagName("LI");
+            for (i = 0; i < (b.length - 1); i++) {
+                shouldSwitch = false;
+                if (criterion === 'name') {
+                    if (b[i].getElementsByTagName("strong")[0].innerHTML.toLowerCase() > b[i + 1].getElementsByTagName("strong")[0].innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                } else if (criterion === 'preference') {
+                    if (b[i].innerHTML.toLowerCase().split('<strong><em>preference:</em></strong> ')[1].split(',')[0] > b[i + 1].innerHTML.toLowerCase().split('<strong><em>preference:</em></strong> ')[1].split(',')[0]) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                b[i].parentNode.insertBefore(b[i + 1], b[i]);
+                switching = true;
+            }
+        }
+    }
+</script>
+{% endblock %}

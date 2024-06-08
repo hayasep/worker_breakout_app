@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Edit Worker{% endblock %}
+{% block header %}
+<h1 class="my-4">Edit Worker</h1>
+{% endblock %}
+{% block content %}
+<form action="{{ url_for('edit_worker', name=worker.name) }}" method="post" class="my-4">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" class="form-control" id="name" name="name" value="{{ worker.name }}" required>
+    </div>
+    <div class="form-group">
+        <label for="preference">Preference:</label>
+        <select id="preference" name="preference" class="form-control" required onchange="updateAlternatives()">
+            {% for section in sections %}
+                <option value="{{ section }}" {% if worker.preference == section %}selected{% endif %}>{{ section }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="alternatives">Alternatives:</label><br>
+        <div id="alternatives-container">
+            {% for section in sections %}
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="alternatives_{{ section }}" name="alternatives" value="{{ section }}" {% if section in worker.alternatives %}checked{% endif %}>
+                    <label class="form-check-label" for="alternatives_{{ section }}">{{ section }}</label><br>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    <button type="submit" name="edit_worker" class="btn btn-primary">Update Worker</button>
+</form>
+<script>
+    function updateAlternatives() {
+        var preference = document.getElementById('preference').value;
+        var checkboxes = document.querySelectorAll('#alternatives-container .form-check-input');
+
+        checkboxes.forEach(function(checkbox) {
+            if (checkbox.value === preference) {
+                checkbox.disabled = true;
+                checkbox.checked = false;
+            } else {
+                checkbox.disabled = false;
+            }
+        });
+    }
+
+    // Initial update to ensure the alternatives list is correct when editing a worker
+    document.addEventListener('DOMContentLoaded', function() {
+        updateAlternatives();
+    });
+</script>
+{% endblock %}
