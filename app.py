@@ -2,8 +2,9 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 import pickle
 import os
 import math
+import random
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 class Worker:
@@ -13,13 +14,19 @@ class Worker:
         self.alternatives = alternatives
         self.is_working = False
 
-def calculate_workers_needed(workload, total_workers):
+def calculate_workers_needed(workload, total_workers, capacities=None):
     total_workload = sum(workload)
     if total_workload == 0:
         return [0] * len(workload)
 
     workload_ratio = [w / total_workload for w in workload]
     workers_needed = [max(1, round(ratio * total_workers)) if workload[i] > 0 else 0 for i, ratio in enumerate(workload_ratio)]
+    
+    if capacities:
+        for i in range(len(workers_needed)):
+            if capacities[i] is not None and workers_needed[i] > capacities[i]:
+                workers_needed[i] = capacities[i]
+
     return workers_needed
 
 def load_workers():
@@ -132,22 +139,50 @@ def delete_worker(name):
     flash(f'Worker {name} deleted successfully!', 'danger')
     return redirect(url_for('manage_workers'))
 
-
 @app.route('/calculate_distribution', methods=['POST'])
 def calculate_distribution():
     total_workers = len(request.form.getlist('working'))
 
     workload = [float(request.form.get(f'time_{section}', 0)) for section in sections]
+    max_capacities = [int(request.form.get(f'cap_{section}', 0)) if request.form.get(f'cap_{section}') else None for section in sections]
     total_workload = sum(workload)
     workload_percentages = [(w / total_workload) * 100 if total_workload > 0 else 0 for w in workload]
-    workers_needed = calculate_workers_needed(workload, total_workers)
+    suggested_workers_needed = calculate_workers_needed(workload, total_workers)
+    workers_needed = calculate_workers_needed(workload, total_workers, max_capacities)
 
     for worker in workers:
         worker.is_working = worker.name in request.form.getlist('working')
 
     worker_distribution, excess_workers = distribute_workers(workers, sections, workers_needed)
-    return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_needed, workload_percentages=workload_percentages, total_workers=total_workers)
+    return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_needed, suggested_workers_needed=suggested_workers_needed, workload_percentages=workload_percentages, total_workers=total_workers, max_workers=max_capacities)
 
+@app.route('/randomize_distribution', methods=['POST'])
+def randomize_distribution():
+    total_workers = len(request.form.getlist('working'))
+
+    workload = [float(request.form.get(f'time_{section}', 0)) for section in sections]
+    max_capacities = [int(request.form.get(f'cap_{section}', total_workers)) if request.form.get(f'cap_{section}') else None for section in sections]
+    total_workload = sum(workload)
+    workload_percentages = [(w / total_workload) * 100 if total_workload > 0 else 0 for w in workload]
+    suggested_workers_needed = calculate_workers_needed(workload, total_workers)
+    workers_needed = calculate_workers_needed(workload, total_workers, max_capacities)
+
+    workers_list = [worker.name for worker in workers if worker.name in request.form.getlist('working')]
+    random.shuffle(workers_list)
+    worker_distribution = {section: [] for section in sections}
+
+    for i, section in enumerate(sections):
+        count = 0
+        while count < workers_needed[i] and workers_list:
+            worker_distribution[section].append(workers_list.pop())
+            count += 1
+
+    excess_workers = workers_list
+
+    # Calculate the actual number of workers assigned to each section
+    workers_assigned = [len(worker_distribution[section]) for section in sections]
+
+    return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_assigned, max_workers=max_capacities, suggested_workers_needed=suggested_workers_needed, workload_percentages=workload_percentages, total_workers=total_workers, sections=sections, workers=workers, request=request)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

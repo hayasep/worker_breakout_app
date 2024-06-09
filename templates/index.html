@@ -1,41 +1,62 @@
 {% extends "base.html" %}
-{% block title %}Target Worker Breakout{% endblock %}
-{% block header %}
-<h2 class="my-4">Calculate Breakout by Stocking Time (Hours)</h2>
-{% endblock %}
+{% block title %}Worker Breakout{% endblock %}
 {% block content %}
-<form action="{{ url_for('calculate_distribution') }}" method="post">
-    <div class="form-group">
-        {% for section in sections %}
-            <label for="time_{{ section }}">{{ section }}:</label>
-            <input type="number" class="form-control" step="0.1" id="time_{{ section }}" name="time_{{ section }}" min="0" required>
-        {% endfor %}
-    </div>
-    <h2 class="my-4">Select workers available for tonight</h2>
-    <div class="form-check">
-        <input type="checkbox" class="form-check-input" onClick="toggleSelectAll(this)">
-        <label class="form-check-label">Select All</label>
-    </div>
-    <div class="row">
-        {% for i in range(0, workers|length, 15) %}
-            <div class="col-md-3">
-                {% for worker in workers[i:i+15] %}
+<div class="container">
+    <h2 class="my-4">Calculate Breakout by Stocking Time (Hours)</h2>
+    <form action="{{ url_for('calculate_distribution') }}" method="post">
+        <div class="form-group">
+            {% for section in sections %}
+                <div class="row align-items-center mb-2">
+                    <label for="time_{{ section }}" class="col-sm-2 col-form-label text-left">{{ section }}:</label>
+                    <div class="col-sm-3">
+                        <input type="number" class="form-control" step="0.1" id="time_{{ section }}" name="time_{{ section }}" min="0" required>
+                    </div>
+                    <div class="col-sm-5 d-flex align-items-center">
+                        <button type="button" class="btn btn-primary" onclick="setMax('{{ section }}')">Set Max</button>
+                        <span id="max_display_{{ section }}" class="max-display"></span>
+                        <input type="hidden" id="max_{{ section }}" name="cap_{{ section }}" value="">
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <h2 class="my-4">Select workers available for tonight</h2>
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" onClick="toggleSelectAll(this)">
+            <label class="form-check-label">Select All</label>
+        </div>
+        <div class="row">
+            {% for worker in workers %}
+                <div class="col-sm-3">
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="working_{{ worker.name }}" name="working" value="{{ worker.name }}">
                         <label class="form-check-label" for="working_{{ worker.name }}">{{ worker.name }}</label>
                     </div>
-                {% endfor %}
-            </div>
-        {% endfor %}
-    </div>
-    <button type="submit" class="btn btn-primary my-4">Calculate Breakout</button>
-</form>
+                </div>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary my-2">Calculate Breakout</button>
+        <button type="button" class="btn btn-secondary my-2" onclick="randomizeBreakout()">Randomize Breakout</button>
+    </form>
+</div>
 <script>
     function toggleSelectAll(source) {
         checkboxes = document.getElementsByName('working');
         for (var i = 0, n = checkboxes.length; i < n; i++) {
             checkboxes[i].checked = source.checked;
         }
+    }
+
+    function setMax(section) {
+        var max = prompt("Set maximum worker amount for " + section + ":");
+        if (max != null) {
+            document.getElementById("max_" + section).value = max;
+            document.getElementById("max_display_" + section).innerText = "Max workers: " + max;
+        }
+    }
+
+    function randomizeBreakout() {
+        document.querySelector('form').action = "{{ url_for('randomize_distribution') }}";
+        document.querySelector('form').submit();
     }
 </script>
 {% endblock %}

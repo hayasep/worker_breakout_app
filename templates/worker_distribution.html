@@ -1,45 +1,101 @@
-{% extends "base.html" %}
-{% block title %}Worker Breakout{% endblock %}
-{% block header %}
-<h1 class="my-4">Worker Breakout</h1>
-{% endblock %}
-{% block content %}
-<h2 class="my-4">Breakout Result</h2>
-<ul class="list-group">
-    {% for section, workers in worker_distribution.items() %}
-        <li class="list-group-item section d-flex justify-content-between">
-            <span><strong>{{ section }}:</strong> {{ workers | join(', ') }}</span>
-            <span class="badge badge-secondary">Suggested Workers: {{ workers_needed[loop.index0] }} | Workload: {{ workload_percentages[loop.index0] | round(2) }}%</span>
-        </li>
-    {% endfor %}
-</ul>
-{% if excess_workers %}
-    <h2 class="my-4">Excess Workers</h2>
-    <ul class="list-group">
-        <li class="list-group-item" id="excess-workers">{{ excess_workers | join(', ') }}</li>
-    </ul>
-{% endif %}
-<h3 class="my-4">Total Workers: {{ total_workers }}</h3>
-<button class="btn btn-primary my-4" onclick="readBreakout()">
-    <i class="fas fa-volume-up"></i> Read Breakout
-</button>
-<button class="btn btn-secondary my-4" onclick="readBreakoutWithBonus()">
-    <i class="fas fa-volume-up"></i> Bonus
-</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Breakout</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+<div class="container mt-4">
+    <h1 class="my-4">Worker Breakout</h1>
+    <nav class="nav mb-4">
+        <a class="nav-link btn btn-outline-primary mr-2" href="{{ url_for('index') }}">Home</a>
+        <a class="nav-link btn btn-outline-primary" href="{{ url_for('manage_workers') }}">Manage Workers</a>
+    </nav>
+
+    <h2 class="my-4">Breakout Result</h2>
+    <table class="table table-bordered">
+        <thead>
+        <tr>
+            <th>Section</th>
+            <th>Workers Assigned</th>
+            <th>Workers</th>
+            <th>Workload %</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for section, workers in worker_distribution.items() %}
+        <tr class="section">
+            <td>{{ section }}</td>
+            <td>{{ ", ".join(workers) }}</td>
+            <td>
+                Suggested: {{ suggested_workers_needed[loop.index0] }}, 
+                Max: {{ max_workers[loop.index0] if max_workers[loop.index0] is not none else "N/A" }}, 
+                Assigned: {{ workers|length }}
+            </td>
+            <td>{{ "%.2f" % workload_percentages[loop.index0] }}%</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Excess Workers</h3>
+    <div id="excess-workers">
+        {% if excess_workers %}
+            {{ ", ".join(excess_workers) }}
+        {% else %}
+            None
+        {% endif %}
+    </div>
+
+    <div class="mt-4">
+        <h4>Total Workers: {{ total_workers }}</h4>
+    </div>
+
+    <button type="button" class="btn btn-primary mt-4" onclick="readBreakout();">
+        Read Breakout
+        <i class="fas fa-volume-up"></i>
+    </button>
+
+    <button type="button" class="btn btn-secondary mt-4" onclick="readBreakoutWithBonus();">
+        Bonus
+        <i class="fas fa-volume-up"></i>
+    </button>
+
+    {% if request.form.get('randomize') %}
+        <form action="{{ url_for('randomize_distribution') }}" method="post">
+            <button type="submit" class="btn btn-warning mt-4">Create Another Random Breakout</button>
+            {% for section in sections %}
+                <input type="hidden" name="time_{{ section }}" value="{{ request.form['time_' ~ section] }}">
+                <input type="hidden" name="cap_{{ section }}" value="{{ request.form['cap_' ~ section] }}">
+            {% endfor %}
+            {% for worker in workers %}
+                <input type="hidden" name="working" value="{{ worker.name }}">
+            {% endfor %}
+        </form>
+    {% endif %}
+</div>
+
 <script>
     function readBreakout() {
         const utterance = new SpeechSynthesisUtterance();
         const sections = document.querySelectorAll('.section');
         let text = "Here is the Worker Breakout: ";
         sections.forEach(section => {
-            const sectionName = section.querySelector('span').textContent.split(":")[0];
-            const workers = section.querySelector('span').textContent.split(":")[1].split("|")[0].trim();
+            const sectionName = section.querySelector('td').textContent.trim();
+            const workers = section.querySelectorAll('td')[1].textContent.trim();
             text += sectionName + ": " + workers + ". ";
         });
 
         const excess = document.getElementById('excess-workers');
         if (excess) {
-            text += "Excess Workers: " + excess.textContent + ".";
+            text += "Excess Workers: " + excess.textContent.trim() + ".";
         }
 
         utterance.text = text;
@@ -51,14 +107,14 @@
         const sections = document.querySelectorAll('.section');
         let text = "Here is the Worker Breakout: ";
         sections.forEach(section => {
-            const sectionName = section.querySelector('span').textContent.split(":")[0];
-            const workers = section.querySelector('span').textContent.split(":")[1].split("|")[0].trim();
+            const sectionName = section.querySelector('td').textContent.trim();
+            const workers = section.querySelectorAll('td')[1].textContent.trim();
             text += sectionName + ": " + workers + ". ";
         });
 
         const excess = document.getElementById('excess-workers');
         if (excess) {
-            text += "Excess Workers: " + excess.textContent + ".";
+            text += "Excess Workers: " + excess.textContent.trim() + ".";
         }
 
         text += " Oh and the Icee machine is on guys so help yourself.";
@@ -67,4 +123,6 @@
         speechSynthesis.speak(utterance);
     }
 </script>
-{% endblock %}
+
+</body>
+</html>
