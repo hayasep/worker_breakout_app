@@ -1,11 +1,22 @@
+import pandas as pd
+from werkzeug.utils import secure_filename
+import os
 from flask import Flask, render_template, request, redirect, url_for, flash
 import pickle
-import os
 import math
 import random
+from flask import session
+
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+app.config['UPLOAD_FOLDER'] = 'uploads'
+
+# Ensure the upload folder exists
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 class Worker:
     def __init__(self, name, preference, alternatives):
@@ -14,7 +25,7 @@ class Worker:
         self.alternatives = alternatives
         self.is_working = False
 
-def calculate_workers_needed(workload, total_workers, capacities=None):
+def calculate_workers_needed(workload, total_workers, capacities):
     total_workload = sum(workload)
     if total_workload == 0:
         return [0] * len(workload)
@@ -22,10 +33,9 @@ def calculate_workers_needed(workload, total_workers, capacities=None):
     workload_ratio = [w / total_workload for w in workload]
     workers_needed = [max(1, round(ratio * total_workers)) if workload[i] > 0 else 0 for i, ratio in enumerate(workload_ratio)]
     
-    if capacities:
-        for i in range(len(workers_needed)):
-            if capacities[i] is not None and workers_needed[i] > capacities[i]:
-                workers_needed[i] = capacities[i]
+    for i in range(len(workers_needed)):
+        if capacities[i] is not None and workers_needed[i] > capacities[i]:
+            workers_needed[i] = capacities[i]
 
     return workers_needed
 
@@ -106,7 +116,9 @@ workers = load_workers()
 
 @app.route('/')
 def index():
-    return render_template('index.html', sections=sections, workers=workers)
+    section_data = session.get('section_data', {})
+    return render_template('index.html', sections=sections, workers=workers, section_data=section_data)
+
 
 @app.route('/manage_workers', methods=['GET', 'POST'])
 def manage_workers():
@@ -139,6 +151,7 @@ def delete_worker(name):
     flash(f'Worker {name} deleted successfully!', 'danger')
     return redirect(url_for('manage_workers'))
 
+
 @app.route('/calculate_distribution', methods=['POST'])
 def calculate_distribution():
     total_workers = len(request.form.getlist('working'))
@@ -147,14 +160,13 @@ def calculate_distribution():
     max_capacities = [int(request.form.get(f'cap_{section}', 0)) if request.form.get(f'cap_{section}') else None for section in sections]
     total_workload = sum(workload)
     workload_percentages = [(w / total_workload) * 100 if total_workload > 0 else 0 for w in workload]
-    suggested_workers_needed = calculate_workers_needed(workload, total_workers)
     workers_needed = calculate_workers_needed(workload, total_workers, max_capacities)
 
     for worker in workers:
         worker.is_working = worker.name in request.form.getlist('working')
 
     worker_distribution, excess_workers = distribute_workers(workers, sections, workers_needed)
-    return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_needed, suggested_workers_needed=suggested_workers_needed, workload_percentages=workload_percentages, total_workers=total_workers, max_workers=max_capacities)
+    return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_needed, suggested_workers_needed=workers_needed, workload_percentages=workload_percentages, total_workers=total_workers, max_workers=max_capacities)
 
 @app.route('/randomize_distribution', methods=['POST'])
 def randomize_distribution():
@@ -164,8 +176,7 @@ def randomize_distribution():
     max_capacities = [int(request.form.get(f'cap_{section}', total_workers)) if request.form.get(f'cap_{section}') else None for section in sections]
     total_workload = sum(workload)
     workload_percentages = [(w / total_workload) * 100 if total_workload > 0 else 0 for w in workload]
-    suggested_workers_needed = calculate_workers_needed(workload, total_workers)
-    workers_needed = calculate_workers_needed(workload, total_workers, max_capacities)
+    suggested_workers_needed = calculate_workers_needed(workload, total_workers, max_capacities)
 
     workers_list = [worker.name for worker in workers if worker.name in request.form.getlist('working')]
     random.shuffle(workers_list)
@@ -173,7 +184,7 @@ def randomize_distribution():
 
     for i, section in enumerate(sections):
         count = 0
-        while count < workers_needed[i] and workers_list:
+        while count < suggested_workers_needed[i] and workers_list:
             worker_distribution[section].append(workers_list.pop())
             count += 1
 
@@ -183,6 +194,63 @@ def randomize_distribution():
     workers_assigned = [len(worker_distribution[section]) for section in sections]
 
     return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_assigned, max_workers=max_capacities, suggested_workers_needed=suggested_workers_needed, workload_percentages=workload_percentages, total_workers=total_workers, sections=sections, workers=workers, request=request)
+
+@app.route('/upload_csv', methods=['POST'])
+def upload_csv():
+    if 'file' not in request.files:
+        flash('No file part', 'danger')
+        return redirect(request.url)
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No selected file', 'danger')
+        return redirect(request.url)
+    
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    # Read the CSV file
+    data = pd.read_csv(filepath)
+
+    # Remove commas from numeric values
+    data.replace({',': ''}, regex=True, inplace=True)
+
+    # Convert relevant columns to numeric, errors='coerce' will turn non-numeric values into NaN
+    data = data.apply(pd.to_numeric, errors='coerce')
+
+    # Calculate values for each section based on the provided logic
+    hba_full_case_eaches = data.iloc[25:32, 2].sum()
+    hba_total_eaches = data.iloc[25:32, 5].sum()
+    hba_stocking_time = data.iloc[25:32, 6].sum()
+    hba = round((hba_full_case_eaches / hba_total_eaches) * hba_stocking_time, 1)
+
+    hba_repacks_each = data.iloc[26:32, 4].sum()
+    hba_repacks_total = data.iloc[26:32, 5].sum()
+    hba_repacks_stocking_time = data.iloc[26:32, 6].sum()
+    hba_repacks = round((hba_repacks_each / hba_repacks_total) * hba_repacks_stocking_time, 1)
+
+    section_data = {
+        "HBA": hba,
+        "Stationary": round(data.iloc[63, 6], 1),
+        "Kitchen": round(data.iloc[61:63, 6].sum(), 1),
+        "C/D": round((data.iloc[42:57, 2].sum() / data.iloc[42:57, 5].sum()) * data.iloc[42:57, 6].sum(), 1),
+        "Chemicals/Paper": round(data.iloc[10:14, 6].sum() + data.iloc[21:25, 6].sum(), 1),
+        "Sports": round(data.iloc[64:67, 6].sum(), 1),
+        "Toys": round(data.iloc[3:8, 6].sum(), 1),
+        "Seasonal": round(data.iloc[69:75, 6].sum(), 1),
+        "Pets": round(data.iloc[14:17, 6].sum(), 1),
+        "Infants": round(data.iloc[17:20, 6].sum(), 1),
+        "HBA Repacks": hba_repacks,
+        "C/D Repacks": round((data.iloc[42:57, 4].sum() / data.iloc[42:57, 5].sum()) * data.iloc[42:57, 6].sum(), 1),
+        "A&A": round(data.iloc[57:61, 6].sum(), 1)
+    }
+
+    # Store the section data in the session
+    session['section_data'] = section_data
+
+    flash('CSV uploaded and processed successfully.', 'success')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
