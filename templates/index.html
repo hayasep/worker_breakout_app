@@ -43,7 +43,6 @@
             {% endfor %}
         </div>
         <button type="submit" class="btn btn-primary my-2">Calculate Breakout</button>
-        <button type="button" class="btn btn-secondary my-2" onclick="randomizeBreakout()">Randomize Breakout</button>
     </form>
 </div>
 <script>
@@ -60,11 +59,6 @@
             document.getElementById("max_" + section).value = max;
             document.getElementById("max_display_" + section).innerText = "Max workers: " + max;
         }
-    }
-
-    function randomizeBreakout() {
-        document.querySelector('form').action = "{{ url_for('randomize_distribution') }}";
-        document.querySelector('form').submit();
     }
 </script>
 {% endblock %}

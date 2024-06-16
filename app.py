@@ -160,40 +160,36 @@ def calculate_distribution():
     max_capacities = [int(request.form.get(f'cap_{section}', 0)) if request.form.get(f'cap_{section}') else None for section in sections]
     total_workload = sum(workload)
     workload_percentages = [(w / total_workload) * 100 if total_workload > 0 else 0 for w in workload]
+    
+    # Calculate suggested workers needed without considering max capacities
+    suggested_workers_needed = calculate_workers_needed(workload, total_workers, [None] * len(sections))
+    
+    # Calculate workers needed with considering max capacities
     workers_needed = calculate_workers_needed(workload, total_workers, max_capacities)
 
     for worker in workers:
         worker.is_working = worker.name in request.form.getlist('working')
 
     worker_distribution, excess_workers = distribute_workers(workers, sections, workers_needed)
-    return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_needed, suggested_workers_needed=workers_needed, workload_percentages=workload_percentages, total_workers=total_workers, max_workers=max_capacities)
+    
+    # Adding stock_times and total_stock_time for the bar chart
+    stock_times = workload
+    total_stock_time = total_workload
 
-@app.route('/randomize_distribution', methods=['POST'])
-def randomize_distribution():
-    total_workers = len(request.form.getlist('working'))
+    return render_template('worker_distribution.html', 
+                           worker_distribution=worker_distribution, 
+                           excess_workers=excess_workers, 
+                           workers_needed=workers_needed, 
+                           suggested_workers_needed=suggested_workers_needed, 
+                           workload_percentages=workload_percentages, 
+                           total_workers=total_workers, 
+                           max_workers=max_capacities,
+                           sections=sections,
+                           stock_times=stock_times,
+                           total_stock_time=total_stock_time)
 
-    workload = [float(request.form.get(f'time_{section}', 0)) for section in sections]
-    max_capacities = [int(request.form.get(f'cap_{section}', total_workers)) if request.form.get(f'cap_{section}') else None for section in sections]
-    total_workload = sum(workload)
-    workload_percentages = [(w / total_workload) * 100 if total_workload > 0 else 0 for w in workload]
-    suggested_workers_needed = calculate_workers_needed(workload, total_workers, max_capacities)
 
-    workers_list = [worker.name for worker in workers if worker.name in request.form.getlist('working')]
-    random.shuffle(workers_list)
-    worker_distribution = {section: [] for section in sections}
 
-    for i, section in enumerate(sections):
-        count = 0
-        while count < suggested_workers_needed[i] and workers_list:
-            worker_distribution[section].append(workers_list.pop())
-            count += 1
-
-    excess_workers = workers_list
-
-    # Calculate the actual number of workers assigned to each section
-    workers_assigned = [len(worker_distribution[section]) for section in sections]
-
-    return render_template('worker_distribution.html', worker_distribution=worker_distribution, excess_workers=excess_workers, workers_needed=workers_assigned, max_workers=max_capacities, suggested_workers_needed=suggested_workers_needed, workload_percentages=workload_percentages, total_workers=total_workers, sections=sections, workers=workers, request=request)
 
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
@@ -254,3 +250,4 @@ def upload_csv():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+

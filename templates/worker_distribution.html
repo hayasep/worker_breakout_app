@@ -8,6 +8,7 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
@@ -58,28 +59,23 @@
         <h4>Total Workers: {{ total_workers }}</h4>
     </div>
 
-    <button type="button" class="btn btn-primary mt-4" onclick="readBreakout();">
-        Read Breakout
-        <i class="fas fa-volume-up"></i>
-    </button>
+    <div class="mt-4">
+        <button type="button" class="btn btn-primary" onclick="readBreakout();">
+            Read Breakout
+            <i class="fas fa-volume-up"></i>
+        </button>
 
-    <button type="button" class="btn btn-secondary mt-4" onclick="readBreakoutWithBonus();">
-        Bonus
-        <i class="fas fa-volume-up"></i>
-    </button>
+        <button type="button" class="btn btn-secondary" onclick="readBreakoutWithBonus();">
+            Bonus
+            <i class="fas fa-volume-up"></i>
+        </button>
+    </div>
 
-    {% if request.form.get('randomize') %}
-        <form action="{{ url_for('randomize_distribution') }}" method="post">
-            <button type="submit" class="btn btn-warning mt-4">Create Another Random Breakout</button>
-            {% for section in sections %}
-                <input type="hidden" name="time_{{ section }}" value="{{ request.form['time_' ~ section] }}">
-                <input type="hidden" name="cap_{{ section }}" value="{{ request.form['cap_' ~ section] }}">
-            {% endfor %}
-            {% for worker in workers %}
-                <input type="hidden" name="working" value="{{ worker.name }}">
-            {% endfor %}
-        </form>
-    {% endif %}
+    <!-- Bar chart for stock times -->
+    <div class="mt-4">
+        <canvas id="stockTimeChart"></canvas>
+        <h4>Total Stock Time: {{ "%.1f" % total_stock_time }} hrs</h4>
+    </div>
 </div>
 
 <script>
@@ -122,7 +118,47 @@
         utterance.text = text;
         speechSynthesis.speak(utterance);
     }
-</script>
 
+    // Bar chart for stock times
+    const ctx = document.getElementById('stockTimeChart').getContext('2d');
+    const stockTimes = {{ stock_times | tojson }};
+    const workloadPercentages = {{ workload_percentages | tojson }};
+    const sections = {{ sections | tojson }};
+
+    const data = {
+        labels: sections,
+        datasets: [{
+            label: 'Stock Time (hrs)',
+            data: stockTimes,
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }]
+    };
+
+    const options = {
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    footer: function(tooltipItems) {
+                        const index = tooltipItems[0].dataIndex;
+                        return `Workload: ${workloadPercentages[index].toFixed(2)}%`;
+                    }
+                }
+            }
+        }
+    };
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: data,
+        options: options
+    });
+</script>
 </body>
 </html>
