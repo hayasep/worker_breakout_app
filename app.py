@@ -39,14 +39,16 @@ def calculate_workers_needed(workload, total_workers, capacities):
 
     return workers_needed
 
+WORKERS_FILE_PATH = os.path.join(os.path.dirname(__file__), 'workers.pkl')
+
 def load_workers():
-    if os.path.exists('workers.pkl'):
-        with open('workers.pkl', 'rb') as f:
+    if os.path.exists(WORKERS_FILE_PATH):
+        with open(WORKERS_FILE_PATH, 'rb') as f:
             return pickle.load(f)
     return []
 
 def save_workers(workers):
-    with open('workers.pkl', 'wb') as f:
+    with open(WORKERS_FILE_PATH, 'wb') as f:
         pickle.dump(workers, f)
 
 def distribute_workers(workers, sections, workers_needed):
@@ -128,6 +130,7 @@ def manage_workers():
         alternatives = request.form.getlist('alternatives')
         new_worker = Worker(name, preference, alternatives)
         workers.append(new_worker)
+        save_workers(workers)  # Save workers after adding
         flash(f'Worker {name} added successfully!', 'success')
         return redirect(url_for('manage_workers'))
     return render_template('manage_workers.html', workers=workers, sections=sections)
@@ -140,6 +143,7 @@ def edit_worker(name):
             worker.name = request.form['name']
             worker.preference = request.form['preference']
             worker.alternatives = request.form.getlist('alternatives')
+            save_workers(workers)  # Save workers after editing
             flash(f'Worker {worker.name} updated successfully!', 'success')
             return redirect(url_for('manage_workers'))
     return render_template('edit_worker.html', worker=worker, sections=sections)
@@ -148,6 +152,7 @@ def edit_worker(name):
 def delete_worker(name):
     global workers
     workers = [w for w in workers if w.name != name]
+    save_workers(workers)  # Save workers after deleting
     flash(f'Worker {name} deleted successfully!', 'danger')
     return redirect(url_for('manage_workers'))
 
