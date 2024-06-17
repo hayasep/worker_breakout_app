@@ -1,5 +1,7 @@
 Worker Breakout Application
+
 This is a Flask application designed to manage worker assignments across various sections in a retail environment. The application allows for adding, editing, and deleting workers, calculating worker distribution based on workload, and visualizing the distribution with a bar graph.
+
 Features
 * Add, edit, and delete worker profiles.
 * Calculate worker distribution based on workload percentages.
@@ -30,22 +32,23 @@ Installation
 
         python -m venv venv
         source venv/bin/activate   
-        # On Windows use`venv\Scripts\activate`
+
+       On Windows use`venv\Scripts\activate`
 
 
-    3. Install the dependencies:
+    4. Install the dependencies:
 
 
         pip install -r requirements.txt
 
 
-    4. Create a runtime.txt file with the following content to specify the Python version:
+    5. Create a runtime.txt file with the following content to specify the Python version:
         txt
 
         python-3.10.12
 
 
-    5. Run the application locally:
+    6. Run the application locally:
 
         
         flask run
@@ -53,6 +56,7 @@ Installation
         The application will be available at http://127.0.0.1:5000.
 
 Usage
+  
     1. Navigate to the home page to view the worker breakout form.
     2. Add, edit, or delete workers through the 'Manage Workers' page.
     3. Upload a CSV file with section data to automatically populate the workload times.
